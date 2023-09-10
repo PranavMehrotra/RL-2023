@@ -1,3 +1,9 @@
+# Group/Serial Number: 11 
+# Author: Pranav Mehrotra, 20CS10085
+# Project Code: TCV1
+# Project Title: Controlling a Toy Car around a Grid [Version 1]
+
+
 import pygame
 import math
 import time

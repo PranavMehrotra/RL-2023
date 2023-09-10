@@ -1,15 +1,26 @@
+# Group/Serial Number: 11 
+# Author: Pranav Mehrotra, 20CS10085
+# Project Code: TCV1
+# Project Title: Controlling a Toy Car around a Grid [Version 1]
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pygame
 import math
 import time
-import env
+import my_env as env
+import my_plotter as plotter
 
 
-GRID_SIZE = 7
+GRID_SIZE = 8
+PYGAME_CELL_SIZE = 70
 GAMMA = 0.9
 DIRECTIONS = 4
-REWARD_MULTIPLIER = 1
+CONVERGENCE_FACTOR = 1e-3
+MAX_EVAL_ITERATIONS = 500
+MAX_POLICY_IMPROVEMENTS = 100
+# REWARD_MULTIPLIER = 1
 
 
 
@@ -59,7 +70,7 @@ class PolicyIteration:
                         return next_state, reward, False
                     else: # crossing boundary
                         next_state = state
-                        reward = -1
+                        reward = -3
                         return next_state, reward, False
         else:
             temp = cell // (self.grid_size-1)
@@ -74,7 +85,7 @@ class PolicyIteration:
                 return next_state, reward, False
             else: # crossing boundary
                 next_state = state
-                reward = -1
+                reward = -3
                 return next_state, reward, False
 
 
@@ -89,10 +100,10 @@ class PolicyIteration:
         return change
     
     def policy_eval(self):
-        convergence=1e-3
+        convergence=CONVERGENCE_FACTOR
         iters = 0
         change = self.policy_eval_one_step()
-        while iters < 500:
+        while iters < MAX_EVAL_ITERATIONS:
             iters += 1
             change = self.policy_eval_one_step()
             if change < convergence:
@@ -122,7 +133,7 @@ class PolicyIteration:
         eval_iters_list = [eval_iters]
         policy_improve_count = self.policy_improvement()
         policy_improve_count_list = [policy_improve_count]
-        while iters < 100:
+        while iters < MAX_POLICY_IMPROVEMENTS:
             iters += 1
             print("----------------------------------------------------------------------------------")
             print(f'iteration {iters}')
@@ -136,24 +147,28 @@ class PolicyIteration:
         return eval_iters_list, policy_improve_count_list
     
 
-    def train(self, plot=True):
+    def train(self):
         eval_iters_list, policy_improve_count_list = self.policy_iteration()
         
+        print("----------------------------------------------------------------------------------")
+        print("\n\nPolicy Iteration Completed!\nSummary:")
         print(f'# epochs: {len(policy_improve_count_list)}')
         print(f'eval count = {eval_iters_list}')
         print(f'policy change = {policy_improve_count_list}')
 
-        if plot:
-            plt.figure(figsize=(10, 5))
-            plt.subplot(1, 2, 1)
-            plt.plot(eval_iters_list)
-            plt.xlabel("Iterations")
-            plt.ylabel("Number of policy evaluation steps")
-            plt.subplot(1, 2, 2)
-            plt.plot(policy_improve_count_list)
-            plt.xlabel("Iterations")
-            plt.ylabel("Number of policy improvement steps")
-            plt.show()
+        plotter.plot_state_values_heatmap(self.grid_size, self.values, 'policy_iteration')
+        plotter.plot_optimal_policy_grid(self.grid_size, self.policy, 'policy_iteration')
+
+        # plt.figure(figsize=(10, 5))
+        # plt.subplot(1, 2, 1)
+        # plt.plot(eval_iters_list)
+        # plt.xlabel("Iterations")
+        # plt.ylabel("Number of policy evaluation steps")
+        # plt.subplot(1, 2, 2)
+        # plt.plot(policy_improve_count_list)
+        # plt.xlabel("Iterations")
+        # plt.ylabel("Number of policy improvement steps")
+        # plt.show()
 
 
 def get_coord(grid_size, cell):
@@ -172,25 +187,20 @@ if __name__ == "__main__":
     gamma = GAMMA
     np.random.seed(42)
     policy_iteration = PolicyIteration(grid_size, gamma)
-    policy_iteration.train(False)
+    policy_iteration.train()
 
-    print(f'final policy: {policy_iteration.policy}')
+    # print(f'final policy: {policy_iteration.policy}')
 
     # Initialize Pygame
     pygame.init()
 
     # Create environment instance
-    env = env.Environment(grid_size)
+    env = env.Environment(grid_size, PYGAME_CELL_SIZE)
 
-    # Example of using the environment
     env.reset()
     env.render()
     time.sleep(1) # Delay for visualization
     done = False
-    # for _ in range(2):
-    #     action = 'forward'
-    #     next_state, reward, done, _ = env.step(action)
-    #     env.render()
     
     directions_dict = {
         0 : 'up',
@@ -218,13 +228,7 @@ if __name__ == "__main__":
         env.last_reward = rew
         env.last_done = done
         env.step(car_x, car_y, directions_dict[direct])
-    # next_state, reward, done, _ = env.step('right')
-    # env.render()
 
-    # for _ in range(10):
-    #     action = 'forward'
-    #     next_state, reward, done, _ = env.step(action)
-    #     env.render()
     time.sleep(1)
     # Quit Pygame
     pygame.quit()
