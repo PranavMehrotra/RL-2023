@@ -1,2 +1,4 @@
 Books/
 Slides/
+**/checkpoints/
+**/__pycache__/

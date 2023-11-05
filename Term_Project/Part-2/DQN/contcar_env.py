@@ -1,11 +1,14 @@
+import time
 import pygame
 import math
 import numpy as np
 
+REWARD_MULTIPLIER = 200
+
 class ContinuousCarRadarEnv:
     def __init__(self, window_size=(700, 900), radius=300, path_thickness=100, car_length=30, car_width=20, car_speed=1., num_rays=5, ray_lengths=[60, 60, 60, 60, 60], ray_angles=[math.pi / 4, math.pi / 8, 0, -math.pi / 8, -math.pi / 4], reward_inside_path=1, reward_outside_path=-1):
         self.window_size = window_size
-
+        self.num_actions = 3  # Steer left, go straight, steer right
         # Pygame initialization
         pygame.init()
         self.screen = pygame.display.set_mode(self.window_size)
@@ -38,7 +41,11 @@ class ContinuousCarRadarEnv:
         self.reward_inside_path = reward_inside_path
         self.reward_outside_path = reward_outside_path
         self.score = 0
+        
+        # Checkpoints
+        self.quarter_lap_done = False
         self.half_lap_done = False
+        self.three_quarter_lap_done = False
 
         # Observation space
         self.observation = np.zeros(self.num_rays + 3) # 3 extra values for car_x, car_y, car_angle
@@ -63,9 +70,12 @@ class ContinuousCarRadarEnv:
         self.car_x += self.car_speed * math.cos(self.car_angle)
         self.car_y -= self.car_speed * math.sin(self.car_angle)
 
-        # Wrap car position around the circular path
-        self.car_x %= self.window_size[0]
-        self.car_y %= self.window_size[1]
+        # # Wrap car position around the circular path
+        # self.car_x %= self.window_size[0]
+        # self.car_y %= self.window_size[1]
+        # If car goes out of bounds, keep it at the boundary
+        self.car_x = min(max(0, self.car_x), self.window_size[0])
+        self.car_y = min(max(0, self.car_y), self.window_size[1])
 
         # Cast radar rays and update ray_values
         # Inefficient way
@@ -109,18 +119,30 @@ class ContinuousCarRadarEnv:
         done = False
         if reward == self.reward_inside_path:
             # If car has crossed the finish line, done = True
-            if self.half_lap_done == True and self.car_y < self.center[1] and self.car_x < self.center[0] + self.radius and self.car_x > self.center[0] +  self.inner_radius:
+            if (self.quarter_lap_done & self.half_lap_done & self.three_quarter_lap_done) == True and self.car_y < self.center[1] and self.car_x < self.center[0] + self.radius and self.car_x > self.center[0] +  self.inner_radius:
                 done = True
-                reward = 100
+                reward = REWARD_MULTIPLIER * 5
 
-        # Check if the car has crossed half the lap
-        if self.half_lap_done == False and self.car_y > self.center[1] and self.car_x > self.center[0] - self.radius and self.car_x < self.center[0] -  self.inner_radius: 
-            self.half_lap_done = True
+            # Check if the car has crossed three quarters of the lap
+            if self.quarter_lap_done & self.half_lap_done & (self.three_quarter_lap_done == False) and self.car_x > self.center[0] and self.car_y < self.center[1] + self.radius and self.car_y > self.center[1] +  self.inner_radius:
+                self.three_quarter_lap_done = True
+                reward = REWARD_MULTIPLIER * 3
+            # Check if the car has crossed half the lap
+            if self.quarter_lap_done == True and (self.half_lap_done | self.three_quarter_lap_done) == False and self.car_y > self.center[1] and self.car_x > self.center[0] - self.radius and self.car_x < self.center[0] -  self.inner_radius: 
+                self.half_lap_done = True
+                reward = REWARD_MULTIPLIER * 2
+                print("Half lap done")
+                print(f"Car position: ({self.car_x}, {self.car_y}), Car angle: {self.car_angle}")
+            
+            # Check if the car has crossed a quarter lap
+            if self.quarter_lap_done == False and self.car_x < self.center[0] and self.car_y > self.center[1] - self.radius and self.car_y < self.center[1] -  self.inner_radius:
+                self.quarter_lap_done = True
+                reward = REWARD_MULTIPLIER * 1
         
         # Update observation and score
         self.score = reward
         self.observation[-3:] = [self.car_x, self.car_y, self.car_angle]
-        return self.observation, reward, done, {}
+        return self.observation, reward, done
 
     def reset(self):
         # Reset car position and radar values
@@ -176,27 +198,29 @@ class ContinuousCarRadarEnv:
         # Update the display
         pygame.display.flip()
 
+    def close(self):
+        pygame.quit()
 
 # Initialize Pygame
-pygame.init()
+# pygame.init()
 
-# Create environment instance
-env = ContinuousCarRadarEnv()
+# # Create environment instance
+# env = ContinuousCarRadarEnv()
 
-# Example of using the environment
-state = env.reset()
-env.render()
-for i in range(1850):
-    if i%26 == 0:
-        action = 0
-    else:
-        action = 1
-    # action=1
-    next_state, reward, done, _ = env.step(action)
-    env.render()
-    if done:
-        print("Done")
-        break
+# # Example of using the environment
+# state = env.reset()
+# env.render()
+# for i in range(1850):
+#     if i%26 == 0:
+#         action = 0
+#     else:
+#         action = 1
+#     # action=1
+#     next_state, reward, done, _ = env.step(action)
+#     env.render()
+#     if done:
+#         print("Done")
+#         break
 
-# Quit Pygame
-pygame.quit()
+# # Quit Pygame
+# pygame.quit()
