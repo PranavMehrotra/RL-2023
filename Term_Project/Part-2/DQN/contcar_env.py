@@ -3,10 +3,10 @@ import pygame
 import math
 import numpy as np
 
-REWARD_MULTIPLIER = 200
+REWARD_MULTIPLIER = 1000
 
 class ContinuousCarRadarEnv:
-    def __init__(self, window_size=(700, 900), radius=300, path_thickness=100, car_length=30, car_width=20, car_speed=1., num_rays=5, ray_lengths=[60, 60, 60, 60, 60], ray_angles=[math.pi / 4, math.pi / 8, 0, -math.pi / 8, -math.pi / 4], reward_inside_path=1, reward_outside_path=-1):
+    def __init__(self, window_size=(900, 900), radius=300, path_thickness=100, outer_ring_radius = 400, inner_ring_radius=150, car_length=30, car_width=20, car_speed=1., num_rays=5, ray_lengths=[60, 60, 60, 60, 60], ray_angles=[math.pi / 4, math.pi / 8, 0, -math.pi / 8, -math.pi / 4], reward_inside_path=1, reward_outside_path=-1):
         self.window_size = window_size
         self.num_actions = 3  # Steer left, go straight, steer right
         # Pygame initialization
@@ -18,10 +18,13 @@ class ContinuousCarRadarEnv:
         self.black = (0, 0, 0)
         self.white = (255, 255, 255)
         self.brown = (139, 69, 19)
+        self.red = (255, 0, 0)
 
         # Circular path parameters
         self.center = (self.window_size[0] // 2, self.window_size[1] // 2)
         self.radius = radius
+        self.outer_ring_radius = outer_ring_radius
+        self.inner_ring_radius = inner_ring_radius
         self.path_thickness = path_thickness
         self.inner_radius = self.radius - self.path_thickness
 
@@ -67,15 +70,37 @@ class ContinuousCarRadarEnv:
             self.car_angle -= 0.1
 
         # Calculate new car position
-        self.car_x += self.car_speed * math.cos(self.car_angle)
-        self.car_y -= self.car_speed * math.sin(self.car_angle)
+        update_x = self.car_speed * math.cos(self.car_angle)
+        update_y = -(self.car_speed * math.sin(self.car_angle))
+        self.car_x += update_x
+        self.car_y += update_y
 
         # # Wrap car position around the circular path
         # self.car_x %= self.window_size[0]
         # self.car_y %= self.window_size[1]
-        # If car goes out of bounds, keep it at the boundary
-        self.car_x = min(max(0, self.car_x), self.window_size[0])
-        self.car_y = min(max(0, self.car_y), self.window_size[1])
+        # If car touches the outer ring, reflect it back
+        distance_to_center = math.sqrt((self.car_x - self.center[0]) ** 2 + (self.car_y - self.center[1]) ** 2)
+        if distance_to_center > self.outer_ring_radius:
+            self.car_x -= update_x
+            self.car_y -= update_y
+            self.car_angle += math.pi
+        elif distance_to_center < self.inner_ring_radius:
+            self.car_x -= update_x
+            self.car_y -= update_y
+            self.car_angle += math.pi
+        
+        # Accomodate car_angle in [0, 2*pi]
+        if self.car_angle > 2 * math.pi:
+            self.car_angle -= 2 * math.pi
+        elif self.car_angle < 0:
+            self.car_angle += 2 * math.pi
+
+        # Check if the car is inside the circular path
+        # distance_to_center = math.sqrt((self.car_x - self.center[0]) ** 2 + (self.car_y - self.center[1]) ** 2)
+        if self.inner_radius < distance_to_center < self.radius:
+            reward = self.reward_inside_path
+        else:
+            reward = self.reward_outside_path
 
         # Cast radar rays and update ray_values
         # Inefficient way
@@ -108,12 +133,6 @@ class ContinuousCarRadarEnv:
             reward = self.reward_outside_path
         '''
         
-        # Check if the car is inside the circular path
-        distance_to_center = math.sqrt((self.car_x - self.center[0]) ** 2 + (self.car_y - self.center[1]) ** 2)
-        if self.inner_radius < distance_to_center < self.radius:
-            reward = self.reward_inside_path
-        else:
-            reward = self.reward_outside_path
 
         # Check if the car has reached the goal
         done = False
@@ -122,6 +141,7 @@ class ContinuousCarRadarEnv:
             if (self.quarter_lap_done & self.half_lap_done & self.three_quarter_lap_done) == True and self.car_y < self.center[1] and self.car_x < self.center[0] + self.radius and self.car_x > self.center[0] +  self.inner_radius:
                 done = True
                 reward = REWARD_MULTIPLIER * 5
+                print("Completed successfully")
 
             # Check if the car has crossed three quarters of the lap
             if self.quarter_lap_done & self.half_lap_done & (self.three_quarter_lap_done == False) and self.car_x > self.center[0] and self.car_y < self.center[1] + self.radius and self.car_y > self.center[1] +  self.inner_radius:
@@ -150,8 +170,10 @@ class ContinuousCarRadarEnv:
         self.car_angle = math.pi / 2
         # self.ray_values = [0] * self.num_rays
         self.score = 0
-        self.half_lap_done = False
         self.done = False
+        self.quarter_lap_done = False
+        self.half_lap_done = False
+        self.three_quarter_lap_done = False
 
         # Reset observation
         self.observation[:-3] = 0
@@ -171,6 +193,12 @@ class ContinuousCarRadarEnv:
 
         # Draw circular path
         pygame.draw.circle(self.screen, self.brown, self.center, self.radius, self.path_thickness)
+
+        # Draw Outer Ring
+        pygame.draw.circle(self.screen, self.black, self.center, self.outer_ring_radius, 10)
+
+        # Draw Inner Ring
+        pygame.draw.circle(self.screen, self.black, self.center, self.inner_ring_radius, 10)
 
         # Draw car as an arrow
         car_points = [

@@ -89,7 +89,7 @@ class DQNAgent():
         
     def act(self, state):
         if np.random.rand() <= self.epsilon:
-            return np.random.choice(self.num_actions)
+            return np.random.randint(self.num_actions)
         else:
             with torch.no_grad():
                 state = torch.from_numpy(state).float()
@@ -99,7 +99,7 @@ class DQNAgent():
     def remember(self, state, action, reward, next_state, done):
         self.experience_replay.add(state, action, reward, next_state, done)
     
-    def replay(self):
+    def replay(self, should_update_target_model=True):
         if self.experience_replay.current_size < self.batch_size:
             return
         
@@ -107,31 +107,32 @@ class DQNAgent():
         
         states = torch.from_numpy(states).float()
         actions = torch.from_numpy(actions).long()
-        rewards = torch.from_numpy(rewards).float()
+        rewards = torch.from_numpy(rewards).int()
         next_states = torch.from_numpy(next_states).float()
-        dones = torch.from_numpy(dones).float()
+        dones = torch.from_numpy(dones).bool()
 
         q_values = self.model(states)
         next_q_values = self.target_model(next_states)
         q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
         next_q_values = next_q_values.max(1)[0]
-        expected_q_values = rewards + (1 - dones) * self.gamma * next_q_values
+        expected_q_values = rewards + (~dones) * self.gamma * next_q_values
 
         loss = self.loss_fn(q_values, expected_q_values)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        self.update_target_model()
+        if should_update_target_model:
+            self.update_target_model()
 
     def update_target_model(self):
-        # for target_param, param in zip(self.target_model.parameters(), self.model.parameters()):
-        #     target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-        self.target_model.load_state_dict(self.model.state_dict())
+        for target_param, param in zip(self.target_model.parameters(), self.model.parameters()):
+            target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+        # self.target_model.load_state_dict(self.model.state_dict())
 
     
 
-def train_dqn_agent(env: ContinuousCarRadarEnv, agent: DQNAgent, num_episodes=1000, max_steps=1000, start_learning = 200, learning_freq = 4, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_'):
+def train_dqn_agent(env: ContinuousCarRadarEnv, agent: DQNAgent, num_episodes=1000, max_steps=1000, start_learning = 200, learning_freq = 4, updation_freq = 100, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_'):
     start_time = time.time()
     rewards = []
     epsilons = []
@@ -150,7 +151,10 @@ def train_dqn_agent(env: ContinuousCarRadarEnv, agent: DQNAgent, num_episodes=10
             if done:
                 break
             if total_steps > start_learning and total_steps % learning_freq == 0:
-                agent.replay()
+                if total_steps % updation_freq == 0:
+                    agent.replay(True)
+                else:
+                    agent.replay(False)
         rewards.append(episode_reward)
         epsilons.append(agent.epsilon)
         if agent.epsilon > agent.epsilon_min:
@@ -163,51 +167,59 @@ def train_dqn_agent(env: ContinuousCarRadarEnv, agent: DQNAgent, num_episodes=10
     # agent.model.save(checkpoint_dir, checkpoint_name)
     return rewards, epsilons
 
-def run_model(env: ContinuousCarRadarEnv, agent: DQNAgent, checkpoint_dir='checkpoints', checkpoint_name='checkpoint.pth'):
+def run_model(env: ContinuousCarRadarEnv, agent: DQNAgent, max_steps, checkpoint_dir='checkpoints', checkpoint_name='checkpoint.pth'):
     agent.model.load(checkpoint_dir, checkpoint_name)
     state = env.reset()
     done = False
-    while not done:
+    steps = 0
+    while not done and steps < max_steps:
+        steps += 1
         env.render()
         action = agent.act(state)
         state, reward, done = env.step(action)
         # time.sleep(0.1)
+    if done:
+        print(f'Car reached destination in {steps} steps')
+    else:
+        print(f'Car could not reach destination')
     env.close()
 
 if __name__ == '__main__':
     # Set random seed
-    np.random.seed(7375)
+    np.random.seed(53467)
     # Initialize environment
-    env = ContinuousCarRadarEnv(reward_inside_path=1, reward_outside_path=-1, car_speed=1.5)
+    env = ContinuousCarRadarEnv(reward_inside_path=1, reward_outside_path=-3, car_speed=1.3, outer_ring_radius=350, inner_ring_radius= 150)
     state_dim = env.observation.shape[0]
     num_actions = env.num_actions
     
     # Initialize DQN agent
-    agent = DQNAgent(state_dim, num_actions, hidden_size=64, gamma=0.99, epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.99, learning_rate=0.001, tau=0.01, batch_size=128, max_memory_size=15000)
-    
-    run_model(env, agent, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_300.pth')
+    agent = DQNAgent(state_dim, num_actions, hidden_size=64, gamma=0.99, epsilon=0.003, epsilon_min=0.0001, epsilon_decay=0.96, learning_rate=1e-4, tau=5e-4, batch_size=128, max_memory_size=40000)
+    # agent.model.load('checkpoints', 'best_checkpoint_3_200.pth')
+    # agent.model.load('checkpoints', 'excel_checkpoint_1_200_50.pth')
+
+    run_model(env, agent, 4000, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_1_200_50_50.pth')
     exit()
 
     # Train DQN agent
-    rewards, epsilons = train_dqn_agent(env, agent, num_episodes=300, max_steps=1300, start_learning = 300, learning_freq = 4, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_')
+    rewards, epsilons = train_dqn_agent(env, agent, num_episodes=50, max_steps=5000, start_learning = 200, learning_freq = 3, updation_freq=30, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_1_200_50_')
     
     # Plot rewards and epsilons
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(20, 10))
-    plt.plot(rewards)
-    plt.title('Rewards')
-    plt.xlabel('Episode')
-    plt.ylabel('Reward')
-    plt.savefig('rewards.png')
-    plt.close()
+    # import matplotlib.pyplot as plt
+    # plt.figure(figsize=(20, 10))
+    # plt.plot(rewards)
+    # plt.title('Rewards')
+    # plt.xlabel('Episode')
+    # plt.ylabel('Reward')
+    # plt.savefig('rewards.png')
+    # plt.close()
     
-    plt.figure(figsize=(20, 10))
-    plt.plot(epsilons)
-    plt.title('Epsilons')
-    plt.xlabel('Episode')
-    plt.ylabel('Epsilon')
-    plt.savefig('epsilons.png')
-    plt.close()
+    # plt.figure(figsize=(20, 10))
+    # plt.plot(epsilons)
+    # plt.title('Epsilons')
+    # plt.xlabel('Episode')
+    # plt.ylabel('Epsilon')
+    # plt.savefig('epsilons.png')
+    # plt.close()
     
     # Test DQN agent
     # agent.model.load('checkpoints', 'checkpoint.pth')
@@ -219,4 +231,4 @@ if __name__ == '__main__':
     #     state, reward, done = env.step(action)
     #     # time.sleep(0.1)
     # env.close()
-    run_model(env, agent, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_300.pth')
+    # run_model(env, agent, 6000, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_200.pth')
