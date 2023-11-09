@@ -18,7 +18,8 @@ class ContinuousCarRadarEnv:
         self.black = (0, 0, 0)
         self.white = (255, 255, 255)
         self.brown = (139, 69, 19)
-        self.red = (255, 0, 0)
+        self.yellow = (255, 255, 0)
+        self.green = (0, 255, 0)
 
         # Circular path parameters
         self.center = (self.window_size[0] // 2, self.window_size[1] // 2)
@@ -208,6 +209,13 @@ class ContinuousCarRadarEnv:
 
         # Draw Inner Ring
         pygame.draw.circle(self.screen, self.black, self.center, self.inner_ring_radius, 10)
+
+
+        # Draw Halfway Line
+        pygame.draw.line(self.screen, self.yellow, (self.center[0] - self.radius, self.center[1]), (self.center[0] - self.inner_radius, self.center[1]), 10)
+
+        # Draw Finish Line
+        pygame.draw.line(self.screen, self.green, (self.center[0] + self.inner_radius, self.center[1]), (self.center[0] + self.radius, self.center[1]), 10)
 
         # Draw car as an arrow
         car_points = [

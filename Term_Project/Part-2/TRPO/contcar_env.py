@@ -3,7 +3,7 @@ import pygame
 import math
 import numpy as np
 
-REWARD_MULTIPLIER = 1000
+REWARD_MULTIPLIER = 500
 
 class ContinuousCarRadarEnv:
     def __init__(self, window_size=(900, 900), radius=300, path_thickness=100, outer_ring_radius = 400, inner_ring_radius=150, car_length=30, car_width=20, car_speed=1., num_rays=5, ray_lengths=[60, 60, 60, 60, 60], ray_angles=[math.pi / 4, math.pi / 8, 0, -math.pi / 8, -math.pi / 4], reward_inside_path=1, reward_outside_path=-1):
@@ -18,7 +18,8 @@ class ContinuousCarRadarEnv:
         self.black = (0, 0, 0)
         self.white = (255, 255, 255)
         self.brown = (139, 69, 19)
-        self.red = (255, 0, 0)
+        self.yellow = (255, 255, 0)
+        self.green = (0, 255, 0)
 
         # Circular path parameters
         self.center = (self.window_size[0] // 2, self.window_size[1] // 2)
@@ -77,8 +78,8 @@ class ContinuousCarRadarEnv:
         update_y = -(self.car_speed * math.sin(self.car_angle))
 
         # Add stochastic wind effect
-        update_x += np.random.normal(0, 0.2)
-        update_y += np.random.normal(0, 0.2)
+        update_x += np.random.normal(0, 0.1)
+        update_y += np.random.normal(0, 0.1)
 
 
         self.car_x += update_x
@@ -209,6 +210,11 @@ class ContinuousCarRadarEnv:
         # Draw Inner Ring
         pygame.draw.circle(self.screen, self.black, self.center, self.inner_ring_radius, 10)
 
+        # Draw Halfway Line
+        pygame.draw.line(self.screen, self.yellow, (self.center[0] - self.radius, self.center[1]), (self.center[0] - self.inner_radius, self.center[1]), 10)
+
+        # Draw Finish Line
+        pygame.draw.line(self.screen, self.green, (self.center[0] + self.inner_radius, self.center[1]), (self.center[0] + self.radius, self.center[1]), 10)
         # Draw car as an arrow
         car_points = [
             (self.car_x + self.car_length * math.cos(self.car_angle), self.car_y - self.car_length * math.sin(self.car_angle)),
