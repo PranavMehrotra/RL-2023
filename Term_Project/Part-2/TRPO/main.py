@@ -9,44 +9,6 @@ from miscellaneous import *
 from trpo import step
 
 class ExperienceReplay():
-    # def __init__(self, state_dim, max_size=30000):
-    #     self.max_size = max_size
-    #     self.current_size = 0
-    #     self.curr_idx = -1
-    #     self.states = np.zeros((self.max_size, state_dim), dtype=np.float32)
-    #     self.actions = np.zeros(self.max_size, dtype=np.int8)
-    #     self.rewards = np.zeros(self.max_size, dtype=np.int32)
-    #     self.next_states = np.zeros((self.max_size, state_dim), dtype=np.float32)
-    #     self.dones = np.zeros(self.max_size, dtype=np.bool)
-
-    # def add(self, state, action, reward, next_state, done):
-    #     idx = self.curr_idx = (self.curr_idx + 1) % self.max_size
-    #     self.states[idx] = state
-    #     self.actions[idx] = action
-    #     self.rewards[idx] = reward
-    #     self.next_states[idx] = next_state
-    #     self.dones[idx] = done
-    #     if self.current_size < self.max_size:
-    #         self.current_size += 1
-
-    # def sample(self, batch_size):
-    #     idxs = np.random.randint(0, self.current_size, size=batch_size)
-    #     return (
-    #         torch.FloatTensor(self.states[idxs]),
-    #         torch.LongTensor(self.actions[idxs]),
-    #         torch.FloatTensor(self.rewards[idxs]),
-    #         torch.FloatTensor(self.next_states[idxs]),
-    #         torch.FloatTensor(self.dones[idxs])
-    #     )
-    
-    # def all(self):
-    #     return (
-    #         torch.FloatTensor(self.states[:self.current_size]),
-    #         torch.LongTensor(self.actions[:self.current_size]),
-    #         torch.FloatTensor(self.rewards[:self.current_size]),
-    #         torch.FloatTensor(self.next_states[:self.current_size]),
-    #         torch.FloatTensor(self.dones[:self.current_size])
-    #     )
     def __init__(self):
         self.mem = []
 

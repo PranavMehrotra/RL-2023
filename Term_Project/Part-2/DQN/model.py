@@ -167,7 +167,7 @@ def train_dqn_agent(env: ContinuousCarRadarEnv, agent: DQNAgent, num_episodes=10
     # agent.model.save(checkpoint_dir, checkpoint_name)
     return rewards, epsilons
 
-def run_model(env: ContinuousCarRadarEnv, agent: DQNAgent, max_steps, checkpoint_dir='checkpoints', checkpoint_name='checkpoint.pth'):
+def test_model(env: ContinuousCarRadarEnv, agent: DQNAgent, max_steps, checkpoint_dir='checkpoints', checkpoint_name='checkpoint.pth'):
     agent.model.load(checkpoint_dir, checkpoint_name)
     state = env.reset()
     done = False
@@ -203,10 +203,13 @@ if __name__ == '__main__':
     # Initialize DQN agent
     agent = DQNAgent(state_dim, num_actions, hidden_size=64, gamma=0.99, epsilon=0.005, epsilon_min=0.0001, epsilon_decay=0.95, learning_rate=1e-4, tau=5e-4, batch_size=128, max_memory_size=50000)
     # agent.model.load('checkpoints', 'best_checkpoint_3_200.pth')
-    agent.model.load('checkpoints', 'excel_checkpoint_1_200_50.pth')
+    # Use pretrained model
+    # agent.model.load('checkpoints', 'excel_checkpoint_1_200_50.pth')
+    
 
-    # run_model(env, agent, 4000, checkpoint_dir='checkpoints', checkpoint_name='excel_checkpoint_1_200_50.pth')
-    # exit()
+    ## Test pretrained model, Comment out the following line to train the model
+    test_model(env, agent, 4000, checkpoint_dir='checkpoints', checkpoint_name='excel_checkpoint_1_200_50.pth')
+    exit()
 
     # Train DQN agent
     rewards, epsilons = train_dqn_agent(env, agent, num_episodes=50, max_steps=4000, start_learning = 200, learning_freq = 3, updation_freq=30, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_1_200_50_')
