@@ -8,7 +8,7 @@ import numpy as np
 from contcar_env import ContinuousCarRadarEnv
 
 class DQN(nn.Module):
-    def __init__(self, state_dim, num_actions, hidden_size=128):
+    def __init__(self, state_dim, num_actions, hidden_size=64):
         super(DQN, self).__init__()
         self.input_size = state_dim
         self.output_size = num_actions
@@ -161,7 +161,7 @@ def train_dqn_agent(env: ContinuousCarRadarEnv, agent: DQNAgent, num_episodes=10
             agent.epsilon *= agent.epsilon_decay
         print(f'Episode {episode + 1}/{num_episodes}, Reward: {episode_reward:.2f}, Epsilon: {agent.epsilon:.4f}')
         # Save checkpoint if 50 episodes have passed
-        if (episode + 1) % 50 == 0:
+        if (episode + 1) % 10 == 0:
             agent.model.save(checkpoint_dir, checkpoint_name + str(episode + 1) + '.pth')
     print(f'\nTraining completed in {(time.time() - start_time) / 60:.2f} minutes')
     # agent.model.save(checkpoint_dir, checkpoint_name)
@@ -184,24 +184,32 @@ def run_model(env: ContinuousCarRadarEnv, agent: DQNAgent, max_steps, checkpoint
         print(f'Car could not reach destination')
     env.close()
 
+def set_seed(seed):
+    np.random.seed(seed)
+
 if __name__ == '__main__':
-    # Set random seed
-    np.random.seed(53467)
-    # Initialize environment
     env = ContinuousCarRadarEnv(reward_inside_path=1, reward_outside_path=-3, car_speed=1.3, outer_ring_radius=350, inner_ring_radius= 150)
+    
+    # Set random seed
+    seed = 33467
+    set_seed(seed)
+    env.set_seed(seed)
+    torch.manual_seed(seed)
+    
+    # Initialize environment
     state_dim = env.observation.shape[0]
     num_actions = env.num_actions
     
     # Initialize DQN agent
-    agent = DQNAgent(state_dim, num_actions, hidden_size=64, gamma=0.99, epsilon=0.003, epsilon_min=0.0001, epsilon_decay=0.96, learning_rate=1e-4, tau=5e-4, batch_size=128, max_memory_size=40000)
+    agent = DQNAgent(state_dim, num_actions, hidden_size=64, gamma=0.99, epsilon=0.005, epsilon_min=0.0001, epsilon_decay=0.95, learning_rate=1e-4, tau=5e-4, batch_size=128, max_memory_size=50000)
     # agent.model.load('checkpoints', 'best_checkpoint_3_200.pth')
-    # agent.model.load('checkpoints', 'excel_checkpoint_1_200_50.pth')
+    agent.model.load('checkpoints', 'excel_checkpoint_1_200_50.pth')
 
-    run_model(env, agent, 4000, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_1_200_50_50.pth')
-    exit()
+    # run_model(env, agent, 4000, checkpoint_dir='checkpoints', checkpoint_name='excel_checkpoint_1_200_50.pth')
+    # exit()
 
     # Train DQN agent
-    rewards, epsilons = train_dqn_agent(env, agent, num_episodes=50, max_steps=5000, start_learning = 200, learning_freq = 3, updation_freq=30, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_1_200_50_')
+    rewards, epsilons = train_dqn_agent(env, agent, num_episodes=50, max_steps=4000, start_learning = 200, learning_freq = 3, updation_freq=30, checkpoint_dir='checkpoints', checkpoint_name='checkpoint_1_200_50_')
     
     # Plot rewards and epsilons
     # import matplotlib.pyplot as plt

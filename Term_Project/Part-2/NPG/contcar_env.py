@@ -77,8 +77,8 @@ class ContinuousCarRadarEnv:
         update_y = -(self.car_speed * math.sin(self.car_angle))
 
         # Add stochastic wind effect
-        update_x += np.random.normal(0, 0.1)
-        update_y += np.random.normal(0, 0.1)
+        update_x += np.random.normal(0, 0.2)
+        update_y += np.random.normal(0, 0.2)
 
 
         self.car_x += update_x
